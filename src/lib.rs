@@ -284,23 +284,24 @@ impl FaStyle {
 
 #[macro_export]
 macro_rules! fa_icon_build {
-    ($base_path:expr, $public:vis enum {
+    ($base_path:expr, $public:vis enum $name:ident {
         $($variants:tt)*
     }) => {
+        use $crate::extract_enum_variants;
 
-        extract_enum_variants!{[$($variants)*], $public}
+        extract_enum_variants!{[$($variants)*], $public, $name}
 
-        impl floem::IntoView for FaIcon {
-            type V = $crate::font_awesome::FaIcon<FaIcon>;
+        impl floem::IntoView for $name {
+            type V = $crate::FaIcon<$name>;
 
             fn into_view(self) -> Self::V {
-                $crate::font_awesome::fa_icon(self)
+                $crate::fa_icon(self)
             }
         }
 
-        impl $crate::font_awesome::FaIconTrait for FaIcon {
-            fn svg(&self, variant: $crate::font_awesome::FaVariant) -> &'static str {
-                use $crate::font_awesome::{FaVariant, FaBaseStyle};
+        impl $crate::FaIconTrait for $name {
+            fn svg(&self, variant: $crate::FaVariant) -> &'static str {
+                use $crate::{FaVariant, FaBaseStyle};
 
                 // Get the variant string for file path
                 let variant_path = match variant {
@@ -332,8 +333,10 @@ macro_rules! fa_icon_build {
                     _ => "solid",
                 };
 
+                use $crate::process_icon_paths;
+
                 // Find the appropriate icon file by processing each variant
-                process_icon_paths!{self, variant_path, $base_path, [$($variants)*]}
+                process_icon_paths!{self, $name, variant_path, $base_path, [$($variants)*]}
             }
         }
     }
@@ -342,152 +345,160 @@ macro_rules! fa_icon_build {
 #[macro_export]
 macro_rules! extract_enum_variants {
     // Simple recursive macro to extract identifiers from variant definitions
-    ([], $public:vis) => {
+    ([], $public:vis, $name:ident) => {
         #[derive(Debug, Clone, Copy)]
-        $public enum FaIcon {}
+        $public enum $name {}
     };
 
-    ([$variant:ident = $path:expr, $($rest:tt)*], $public:vis) => {
-        extract_enum_variants!([$($rest)*], $public, [$variant]);
+    ([$variant:ident = $path:expr, $($rest:tt)*], $public:vis, $name:ident) => {
+        extract_enum_variants!([$($rest)*], $public, $name, [$variant]);
     };
 
-    ([$variant:ident, $($rest:tt)*], $public:vis) => {
-        extract_enum_variants!([$($rest)*], $public, [$variant]);
+    ([$variant:ident, $($rest:tt)*], $public:vis, $name:ident) => {
+        extract_enum_variants!([$($rest)*], $public, $name, [$variant]);
     };
 
-    ([$variant:ident = $path:expr], $public:vis) => {
-        extract_enum_variants!([], $public, [$variant]);
+    ([$variant:ident = $path:expr], $public:vis, $name:ident) => {
+        extract_enum_variants!([], $public, $name, [$variant]);
     };
 
-    ([$variant:ident], $public:vis) => {
-        extract_enum_variants!([], $public, [$variant]);
+    ([$variant:ident], $public:vis, $name:ident) => {
+        extract_enum_variants!([], $public, $name, [$variant]);
     };
 
-    ([], $public:vis, [$($variants:ident),*]) => {
+    ([], $public:vis, $name:ident, [$($variants:ident),*]) => {
         #[derive(Debug, Clone, Copy)]
-        $public enum FaIcon {
+        $public enum $name {
             $($variants),*
         }
     };
 
-    ([$first:ident = $path:expr, $($rest:tt)*], $public:vis, [$($variants:ident),*]) => {
-        extract_enum_variants!([$($rest)*], $public, [$($variants),*, $first]);
+    ([$first:ident = $path:expr, $($rest:tt)*], $public:vis, $name:ident, [$($variants:ident),*]) => {
+        extract_enum_variants!([$($rest)*], $public, $name, [$($variants),*, $first]);
     };
 
-    ([$first:ident, $($rest:tt)*], $public:vis, [$($variants:ident),*]) => {
-        extract_enum_variants!([$($rest)*], $public, [$($variants),*, $first]);
+    ([$first:ident, $($rest:tt)*], $public:vis, $name:ident, [$($variants:ident),*]) => {
+        extract_enum_variants!([$($rest)*], $public, $name, [$($variants),*, $first]);
     };
 }
 
 #[macro_export]
 macro_rules! process_icon_paths {
     // Base case - no more variants to process
-    {$self:expr, $variant_path:expr, $base_path:expr, []} => {
+    {$self:expr, $name:ident, $variant_path:expr, $base_path:expr, []} => {
         // Default fallback
         r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"></svg>"#
     };
 
     // Process a variant with a custom path
-    {$self:expr, $variant_path:expr, $base_path:expr,
+    {$self:expr, $name:ident, $variant_path:expr, $base_path:expr,
         [$variant:ident = $path:expr, $($rest:tt)*]
     } => {
         match ($self, $variant_path) {
-            (FaIcon::$variant, "solid") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
-            (FaIcon::$variant, "regular") => include_str!(concat!($base_path, "/regular/", $path, ".svg")),
-            (FaIcon::$variant, "light") => include_str!(concat!($base_path, "/light/", $path, ".svg")),
-            (FaIcon::$variant, "thin") => include_str!(concat!($base_path, "/thin/", $path, ".svg")),
-            (FaIcon::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", $path, ".svg")),
-            (FaIcon::$variant, "brands") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
-            _ => process_icon_paths!{$self, $variant_path, $base_path, [$($rest)*]}
+            ($name::$variant, "solid") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
+            ($name::$variant, "regular") => include_str!(concat!($base_path, "/regular/", $path, ".svg")),
+            ($name::$variant, "light") => include_str!(concat!($base_path, "/light/", $path, ".svg")),
+            ($name::$variant, "thin") => include_str!(concat!($base_path, "/thin/", $path, ".svg")),
+            ($name::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", $path, ".svg")),
+            ($name::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", $path, ".svg")),
+            ($name::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", $path, ".svg")),
+            ($name::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", $path, ".svg")),
+            ($name::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", $path, ".svg")),
+            ($name::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", $path, ".svg")),
+            ($name::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", $path, ".svg")),
+            ($name::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", $path, ".svg")),
+            ($name::$variant, "brands") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
+            _ => process_icon_paths!{$self, $name, $variant_path, $base_path, [$($rest)*]}
         }
     };
 
     // Process a regular variant (no custom path)
-    {$self:expr, $variant_path:expr, $base_path:expr,
+    {$self:expr, $name:ident, $variant_path:expr, $base_path:expr,
         [$variant:ident, $($rest:tt)*]
     } => {
         match ($self, $variant_path) {
-            (FaIcon::$variant, "solid") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "regular") => include_str!(concat!($base_path, "/regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "light") => include_str!(concat!($base_path, "/light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "thin") => include_str!(concat!($base_path, "/thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "brands") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
-            _ => process_icon_paths!{$self, $variant_path, $base_path, [$($rest)*]}
+            ($name::$variant, "solid") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "regular") => include_str!(concat!($base_path, "/regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "light") => include_str!(concat!($base_path, "/light/", stringify!($variant), ".svg")),
+            ($name::$variant, "thin") => include_str!(concat!($base_path, "/thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "brands") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
+            _ => process_icon_paths!{$self, $name, $variant_path, $base_path, [$($rest)*]}
         }
     };
 
     // Handle the last variant with a custom path (no comma at the end)
-    {$self:expr, $variant_path:expr, $base_path:expr,
+    {$self:expr, $name:ident, $variant_path:expr, $base_path:expr,
         [$variant:ident = $path:expr]
     } => {
         match ($self, $variant_path) {
-            (FaIcon::$variant, "solid") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
-            (FaIcon::$variant, "regular") => include_str!(concat!($base_path, "/regular/", $path, ".svg")),
-            (FaIcon::$variant, "light") => include_str!(concat!($base_path, "/light/", $path, ".svg")),
-            (FaIcon::$variant, "thin") => include_str!(concat!($base_path, "/thin/", $path, ".svg")),
-            (FaIcon::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", $path, ".svg")),
-            (FaIcon::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", $path, ".svg")),
-            (FaIcon::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", $path, ".svg")),
-            (FaIcon::$variant, "brands") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
+            ($name::$variant, "solid") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
+            ($name::$variant, "regular") => include_str!(concat!($base_path, "/regular/", $path, ".svg")),
+            ($name::$variant, "light") => include_str!(concat!($base_path, "/light/", $path, ".svg")),
+            ($name::$variant, "thin") => include_str!(concat!($base_path, "/thin/", $path, ".svg")),
+            ($name::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", $path, ".svg")),
+            ($name::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", $path, ".svg")),
+            ($name::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", $path, ".svg")),
+            ($name::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", $path, ".svg")),
+            ($name::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", $path, ".svg")),
+            ($name::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", $path, ".svg")),
+            ($name::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", $path, ".svg")),
+            ($name::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", $path, ".svg")),
+            ($name::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", $path, ".svg")),
+            ($name::$variant, "brands") => include_str!(concat!($base_path, "/solid/", $path, ".svg")),
             _ => r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"></svg>"#
         }
     };
 
     // Handle the last regular variant (no comma at the end)
-    {$self:expr, $variant_path:expr, $base_path:expr,
+    {$self:expr, $name:ident, $variant_path:expr, $base_path:expr,
         [$variant:ident]
     } => {
         match ($self, $variant_path) {
-            (FaIcon::$variant, "solid") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "regular") => include_str!(concat!($base_path, "/regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "light") => include_str!(concat!($base_path, "/light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "thin") => include_str!(concat!($base_path, "/thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", stringify!($variant), ".svg")),
-            (FaIcon::$variant, "brands") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "solid") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "regular") => include_str!(concat!($base_path, "/regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "light") => include_str!(concat!($base_path, "/light/", stringify!($variant), ".svg")),
+            ($name::$variant, "thin") => include_str!(concat!($base_path, "/thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone") => include_str!(concat!($base_path, "/duotone/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-solid") => include_str!(concat!($base_path, "/sharp-solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-regular") => include_str!(concat!($base_path, "/sharp-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-light") => include_str!(concat!($base_path, "/sharp-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-thin") => include_str!(concat!($base_path, "/sharp-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-solid") => include_str!(concat!($base_path, "/sharp-duotone-solid/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-regular") => include_str!(concat!($base_path, "/sharp-duotone-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-light") => include_str!(concat!($base_path, "/sharp-duotone-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "sharp-duotone-thin") => include_str!(concat!($base_path, "/sharp-duotone-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-regular") => include_str!(concat!($base_path, "/duotone-regular/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-light") => include_str!(concat!($base_path, "/duotone-light/", stringify!($variant), ".svg")),
+            ($name::$variant, "duotone-thin") => include_str!(concat!($base_path, "/duotone-thin/", stringify!($variant), ".svg")),
+            ($name::$variant, "brands") => include_str!(concat!($base_path, "/solid/", stringify!($variant), ".svg")),
             _ => r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"></svg>"#
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_macros() {
+        fa_icon_build! {"", enum Icon {}};
+    }
 }
